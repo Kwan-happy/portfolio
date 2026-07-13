@@ -239,7 +239,7 @@ const I18N={
     noCalc:'ไม่คิด', done:'ครบแล้ว ✓', fill:'+ เติมเงิน', edit:'แก้ไข',
     promptAdd:n=>`เติมเงินเข้า "${n}" (ใส่ตัวเลขบวก/ลบ)`,
     confDel:'ลบกองนี้?', confClear:'ล้างประวัติทั้งหมด?', histEmpty:'ยังไม่มีประวัติ — เริ่มแก้ไขกองแล้วจะถูกบันทึกที่นี่',
-    badFile:'ไฟล์ไม่ถูกต้อง',
+    badFile:'ไฟล์ไม่ถูกต้อง', badNum:'ใส่ตัวเลขไม่ถูกต้อง',
     lgFill:(n,d,t)=>`เติมเงิน "${n}" ${d} → ยอด ${t} ฿`, lgGoal:(a,b)=>`ตั้งเป้าสิ้นปี ${a} → ${b} ฿`,
     lgAdd:(n,c)=>`เพิ่มกอง "${n}" ยอดเริ่มต้น ${c} ฿`, lgDel:(n,c)=>`ลบกอง "${n}" (ยอด ${c} ฿)`,
     lgEdit:(n,d)=>`แก้ไข "${n}"${d}`, lgNoChange:' (ไม่มีการเปลี่ยนค่า)', lgImport:'นำเข้าข้อมูลจากไฟล์',
@@ -271,7 +271,7 @@ const I18N={
     noCalc:'none', done:'done ✓', fill:'+ Add money', edit:'Edit',
     promptAdd:n=>`Add money to "${n}" (positive/negative number)`,
     confDel:'Delete this bucket?', confClear:'Clear all history?', histEmpty:'No history yet — edits will be logged here',
-    badFile:'Invalid file',
+    badFile:'Invalid file', badNum:'Please enter a valid number',
     lgFill:(n,d,t)=>`Added to "${n}" ${d} → balance ${t} ฿`, lgGoal:(a,b)=>`Year-end target ${a} → ${b} ฿`,
     lgAdd:(n,c)=>`Added bucket "${n}" starting ${c} ฿`, lgDel:(n,c)=>`Deleted bucket "${n}" (${c} ฿)`,
     lgEdit:(n,d)=>`Edited "${n}"${d}`, lgNoChange:' (no changes)', lgImport:'Imported data from file',
@@ -425,10 +425,14 @@ function saveNotes(v){state.notes=v;save();}
 function quickAdd(id){
   const b=state.buckets.find(x=>x.id===id);
   const v=prompt(t('promptAdd',b.name),'');
-  if(v===null||v==='')return;
+  if(v===null)return;
+  const s=String(v).replace(/,/g,'').trim();
+  if(s==='')return;
+  const n=Number(s);
+  if(!Number.isFinite(n)){alert(t('badNum'));return;}
   const before=+b.cur;
-  b.cur=Math.max(0,before+(+v));
-  log(t('lgFill',b.name,(+v>=0?'+':'')+baht(+v),baht(b.cur)));
+  b.cur=Math.max(0,before+n);
+  log(t('lgFill',b.name,(n>=0?'+':'')+baht(n),baht(b.cur)));
   save();renderAll();
 }
 

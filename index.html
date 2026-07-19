@@ -9,8 +9,8 @@
     --bg:#fafafa; --surface:#ffffff; --ink:#1a1a1a; --muted:#8a8a8a;
     --line:#ededed; --line2:#e3e3e3; --shadow:0 1px 3px rgba(0,0,0,.05),0 8px 30px rgba(0,0,0,.04);
     /* pastel palette for circles */
-    --c1:#cfe3f0; --c2:#d8ecdd; --c3:#f3e2d3; --c4:#e6dcef; --c5:#f5dfe4;
-    --c6:#e0ede0; --c7:#efe7d2; --c8:#dce6ee;
+    --c1:#cfe3f0; --c2:#dcecb0; --c3:#f7ddc4; --c4:#e4d3f2; --c5:#f8d3e2;
+    --c6:#c2e8df; --c7:#f3ecb6; --c8:#f6cfc6;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -96,6 +96,43 @@
   }
   textarea:focus{outline:none; border-color:#bdbdbd}
 
+  /* note log */
+  .noteadd{display:flex; gap:8px; align-items:flex-start; margin-bottom:12px}
+  .noteadd textarea{min-height:44px}
+  .notelog{max-height:340px; overflow:auto; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:var(--shadow)}
+  .notedate{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; padding:10px 14px 4px}
+  .noterow{display:flex; gap:10px; align-items:flex-start; padding:8px 14px; border-bottom:1px solid var(--line); font-size:13px}
+  .noterow:last-child{border-bottom:none}
+  .noterow .ntxt{flex:1; white-space:pre-wrap; word-break:break-word}
+  .noterow .ntime{font-size:11px; color:var(--muted); margin-top:2px}
+  .noterow .ndel{border:none; background:none; padding:2px 4px; color:var(--muted); font-size:13px}
+  .noterow .ndel:hover{color:#b9434a; background:none}
+
+  /* arrow control on card */
+  .card .top .go{border:none; background:none; padding:2px 6px; font-size:15px; color:var(--muted); line-height:1}
+  .card .top .go:hover{color:var(--ink); background:none}
+  .card .txsum{font-size:11px; color:var(--muted); margin-top:8px}
+
+  /* ledger */
+  .ledgerhead{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:12px}
+  .ledgerhead .bal{font-size:18px; font-weight:600; letter-spacing:-.02em}
+  .ledgersum{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px}
+  .txlist{max-height:46vh; overflow:auto; margin:0 -4px}
+  .txrow{display:flex; gap:9px; align-items:flex-start; padding:9px 6px; border-bottom:1px solid var(--line); font-size:13px}
+  .txrow:last-child{border-bottom:none}
+  .txrow .tem{font-size:16px; line-height:1.4; flex:none}
+  .txrow .tbody{flex:1}
+  .txrow .tnote{font-size:11px; color:var(--muted); margin-top:1px}
+  .txrow .tamt{font-weight:600; white-space:nowrap}
+  .txrow .tamt.out{color:#b9434a} .txrow .tamt.in{color:#2f7d4a}
+  .txrow .tdel{border:none; background:none; padding:2px 4px; color:var(--muted); font-size:13px; flex:none}
+  .txrow .tdel:hover{color:#b9434a; background:none}
+  .chips{display:flex; gap:7px; flex-wrap:wrap}
+  .chip{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line2); background:var(--surface);
+    border-radius:999px; padding:6px 11px; font-size:13px; cursor:pointer; transition:.15s ease}
+  .chip:hover{border-color:#c8c8c8}
+  .chip.sel{border-color:var(--ink); background:var(--ink); color:#fff}
+
   /* ===== Modal ===== */
   .overlay{position:fixed; inset:0; background:rgba(0,0,0,.32); display:none; align-items:center; justify-content:center; z-index:200; padding:20px}
   .overlay.show{display:flex}
@@ -139,6 +176,7 @@
     </div>
     <div class="tools">
       <button class="primary" onclick="openEdit()" data-i18n="addBucket">+ เพิ่มกอง</button>
+      <button onclick="manualSave()" data-i18n="saveBtn">💾 บันทึก</button>
       <button onclick="openHistory()" data-i18n="history">🕘 ประวัติ</button>
       <button onclick="exportData()" data-i18n="export">Export</button>
       <button onclick="document.getElementById('imp').click()" data-i18n="import">Import</button>
@@ -171,7 +209,11 @@
 
   <!-- NOTES -->
   <div class="section-h"><h2 data-i18n="notesHead">โน้ต (safety room / หนี้ / บันทึกประจำวัน)</h2></div>
-  <textarea id="notes" data-i18n-ph="notesPh" placeholder="จดอะไรก็ได้ ไม่ถูกนำไปคำนวณ…" oninput="saveNotes(this.value)"></textarea>
+  <div class="noteadd">
+    <textarea id="noteInput" data-i18n-ph="notesPh" placeholder="จดอะไรก็ได้ ไม่ถูกนำไปคำนวณ…"></textarea>
+    <button class="primary" onclick="addNote()" data-i18n="addNote">เพิ่มโน้ต</button>
+  </div>
+  <div class="notelog" id="noteLog"></div>
 </div>
 
 <!-- HISTORY MODAL -->
@@ -191,7 +233,7 @@
     <div class="field"><label data-i18n="fName">ชื่อกอง</label><input type="text" id="f_name" data-i18n-ph="fNamePh" placeholder="เช่น kept, ETF, K Bank"></div>
     <div class="field"><label data-i18n="fCur">ยอดปัจจุบัน (บาท)</label><input type="number" id="f_cur"></div>
     <div class="field"><label data-i18n="fTarget">ยอดเป้า (บาท) — เว้นว่างได้</label><input type="number" id="f_target"></div>
-    <div class="field"><label data-i18n="fRate">ผลตอบแทนต่อปี (%)</label><input type="number" id="f_rate" step="0.1">
+    <div class="field"><label data-i18n="fRate">ผลตอบแทนต่อปี (%)</label><input type="number" id="f_rate" step="0.01">
       <div class="hint" data-i18n="fRateHint">ติ๊ก liquid ถ้าเป็นเงินไว้ใช้ ไม่คิดผลตอบแทน</div></div>
     <div class="field"><label data-i18n="fColor">สี</label><div class="swatches" id="swatches"></div></div>
     <label class="checkrow"><input type="checkbox" id="f_liquid"> <span data-i18n="fLiquid">เป็นเงิน liquid (ไม่คิดผลตอบแทน)</span></label>
@@ -204,8 +246,48 @@
   </div>
 </div>
 
+<!-- BUCKET LEDGER MODAL -->
+<div class="overlay" id="bkOverlay">
+  <div class="modal" style="max-width:460px">
+    <div class="ledgerhead">
+      <h3 id="bkTitle" style="margin:0">—</h3>
+      <span class="bal" id="bkBal"></span>
+    </div>
+    <div class="ledgersum">
+      <div class="stat"><div class="k" data-i18n="ledgerSpending">รายจ่าย</div><div class="v" id="bkOut" style="color:#b9434a"></div></div>
+      <div class="stat"><div class="k" data-i18n="ledgerIncome">รายรับ</div><div class="v" id="bkIn" style="color:#2f7d4a"></div></div>
+    </div>
+    <div class="txlist" id="bkList"></div>
+    <div class="foot" style="justify-content:space-between">
+      <div style="display:flex;gap:8px">
+        <button onclick="openTxForm(ledgerId,'out')" data-i18n="txSpendBtn">− จ่าย</button>
+        <button onclick="openTxForm(ledgerId,'in')" data-i18n="txIncomeBtn">+ รับ</button>
+      </div>
+      <button onclick="closeBucket()" data-i18n="close">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TRANSACTION MODAL -->
+<div class="overlay" id="txOverlay">
+  <div class="modal">
+    <h3 id="txTitle" data-i18n="txAdd">เพิ่มรายการ</h3>
+    <div class="field"><label data-i18n="txAmount">จำนวนเงิน (บาท)</label><input type="number" id="tx_amt"></div>
+    <div class="field"><label data-i18n="txCat">หมวดหมู่</label><div class="chips" id="txChips"></div></div>
+    <div class="field"><label data-i18n="txNote">โน้ต (ไม่บังคับ)</label><input type="text" id="tx_note"></div>
+    <div class="foot">
+      <button onclick="closeTxForm()" data-i18n="cancel">ยกเลิก</button>
+      <button class="primary" onclick="saveTx()" data-i18n="save">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const PALETTE=['--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8'];
+const CATS={
+  out:[['food','🍜'],['transport','🚗'],['bills','🧾'],['shopping','🛍️'],['other','📌']],
+  in :[['salary','💰'],['bonus','🎁'],['returns','📈'],['transferIn','🔄'],['other','📌']]
+};
 const KEY='portfolio_app_v1';
 
 /* ===== Cloud sync config (Supabase) =====
@@ -251,6 +333,16 @@ const I18N={
     lgPulled:'ดึงข้อมูลล่าสุดจากคลาวด์',
     syncKey:'🔑 ใส่คีย์คลาวด์', stNoKey:'แตะปุ่มเพื่อวาง Supabase anon key (ครั้งเดียว)',
     keyPrompt:'วาง Supabase anon public key (Ctrl+V แล้วกด OK)\nคีย์ขึ้นต้นด้วย eyJ...', keyBad:'คีย์ไม่ถูกต้อง — ต้องขึ้นต้นด้วย eyJ',
+    saveBtn:'💾 บันทึก', saved:'บันทึกแล้ว ✓', addNote:'เพิ่มโน้ต', notesEmpty:'ยังไม่มีโน้ต',
+    openBucket:'เปิดบัญชีกองนี้',
+    ledgerSpending:'รายจ่ายรวม', ledgerIncome:'รายรับรวม',
+    txAdd:'เพิ่มรายการ', txAmount:'จำนวนเงิน (บาท)', txCat:'หมวดหมู่', txNote:'โน้ต (ไม่บังคับ)',
+    txSpendBtn:'− จ่าย', txIncomeBtn:'+ รับ', emptyLedger:'ยังไม่มีรายการ',
+    confDelTx:'ลบรายการนี้? ยอดจะถูกปรับกลับ',
+    catFood:'อาหาร', catTransport:'เดินทาง', catBills:'บิล/ค่าใช้จ่าย', catShopping:'ช้อปปิ้ง', catOther:'อื่นๆ',
+    catSalary:'เงินเดือน', catBonus:'โบนัส', catReturns:'ผลตอบแทน', catTransferIn:'เงินโอนเข้า',
+    lgTxOut:(n,a,c)=>`จ่าย "${n}" ${c} -${a} ฿`, lgTxIn:(n,a,c)=>`รับ "${n}" ${c} +${a} ฿`,
+    lgTxDel:(n,a)=>`ลบรายการใน "${n}" (${a} ฿)`,
   },
   en:{
     appTitle:'My Portfolio', addBucket:'+ Add bucket', history:'🕘 History', export:'Export', import:'Import',
@@ -283,6 +375,16 @@ const I18N={
     lgPulled:'Pulled latest from cloud',
     syncKey:'🔑 Enter cloud key', stNoKey:'Tap to paste Supabase anon key (once)',
     keyPrompt:'Paste Supabase anon public key (Ctrl+V then OK)\nKey starts with eyJ...', keyBad:'Invalid key — must start with eyJ',
+    saveBtn:'💾 Save', saved:'Saved ✓', addNote:'Add note', notesEmpty:'No notes yet',
+    openBucket:'Open this bucket ledger',
+    ledgerSpending:'Total spending', ledgerIncome:'Total income',
+    txAdd:'Add entry', txAmount:'Amount (THB)', txCat:'Category', txNote:'Note (optional)',
+    txSpendBtn:'− Spending', txIncomeBtn:'+ Income', emptyLedger:'No entries yet',
+    confDelTx:'Delete this entry? The balance will be reversed',
+    catFood:'Food', catTransport:'Transport', catBills:'Bills', catShopping:'Shopping', catOther:'Other',
+    catSalary:'Salary', catBonus:'Bonus', catReturns:'Returns', catTransferIn:'Transfer in',
+    lgTxOut:(n,a,c)=>`Spent "${n}" ${c} -${a} ฿`, lgTxIn:(n,a,c)=>`Income "${n}" ${c} +${a} ฿`,
+    lgTxDel:(n,a)=>`Deleted entry in "${n}" (${a} ฿)`,
   }
 };
 let LANG='th';
@@ -301,6 +403,7 @@ const DEFAULT={
   lang:'th',
   history:[],
   notes:'',
+  noteLog:[],
   buckets:[
     {id:1,name:'เงินสำรอง',cur:0,target:0,rate:0,liquid:true,auto:false,color:'--c1'},
     {id:2,name:'ออมทรัพย์',cur:0,target:0,rate:0,liquid:false,auto:false,color:'--c2'},
@@ -313,11 +416,21 @@ const DEFAULT={
 let state=load();
 LANG=state.lang||'th';
 let editingId=null, pickedColor='--c1';
+let ledgerId=null, txType='out', pickedCat=null;
 
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.buckets){if(!s.history)s.history=[];return s;}return structuredClone(DEFAULT);}catch(e){return structuredClone(DEFAULT);}}
+function migrate(s){
+  if(!s.history)s.history=[];
+  if(!Array.isArray(s.noteLog)){
+    s.noteLog=(typeof s.notes==='string'&&s.notes.trim())?[{t:Date.now(),text:s.notes}]:[];
+  }
+  return s;
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.buckets){return migrate(s);}return structuredClone(DEFAULT);}catch(e){return structuredClone(DEFAULT);}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));schedulePush();}
 function log(msg){state.history.unshift({t:Date.now(),msg});if(state.history.length>300)state.history.pop();}
 const baht=n=>new Intl.NumberFormat('th-TH',{maximumFractionDigits:0}).format(Math.round(n));
+const pct=n=>new Intl.NumberFormat(LANG==='th'?'th-TH':'en-GB',{maximumFractionDigits:2}).format(+n||0);
+const catLabel=key=>t('cat'+key.charAt(0).toUpperCase()+key.slice(1));
 const cssVar=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 /* ---- calculations ---- */
@@ -353,7 +466,7 @@ function renderHero(){
     el.className='bubble';
     el.style.cssText=`width:${size}px;height:${size}px;left:${x}px;top:${y}px;background:${cssVar(b.color)};z-index:${10+i}`;
     const pctSize=Math.max(13,size*0.16);
-    el.innerHTML=`<div class="pct" style="font-size:${pctSize}px">${b.liquid?'–':(+b.rate).toFixed(1)+'%'}</div>
+    el.innerHTML=`<div class="pct" style="font-size:${pctSize}px">${b.liquid?'–':pct(+b.rate)+'%'}</div>
       <div class="nm">${b.name}</div><div class="amt">${baht(b.cur)}</div>`;
     el.onclick=()=>openEdit(b.id);
     stage.appendChild(el);
@@ -363,7 +476,7 @@ function renderHero(){
   center.className='center';
   center.innerHTML=`<div class="lbl">${t('totalPort')}</div>
     <div class="total">${baht(c.total)}</div>
-    <div class="ret">${t('centerRet',c.avgPct.toFixed(2),baht(c.annualReturn))}</div>
+    <div class="ret">${t('centerRet',pct(c.avgPct),baht(c.annualReturn))}</div>
     <div class="gap ${gapBehind?'behind':'ok'}">${gapBehind?t('gapBehind',baht(c.gap)):t('gapOk',baht(-c.gap))}</div>`;
   stage.appendChild(center);
 }
@@ -375,7 +488,7 @@ function renderSummary(){
   const u=t('bahtU'), loc=LANG==='th'?'th-TH':'en-GB';
   document.getElementById('summary').innerHTML=`
     <div class="stat"><div class="k">${t('sTotal')}</div><div class="v">${baht(c.total)} <small>${u}</small></div></div>
-    <div class="stat"><div class="k">${t('sReturn')}</div><div class="v">+${baht(c.annualReturn)} <small>${u} · ${c.avgPct.toFixed(2)}%*</small></div></div>
+    <div class="stat"><div class="k">${t('sReturn')}</div><div class="v">+${baht(c.annualReturn)} <small>${u} · ${pct(c.avgPct)}%*</small></div></div>
     <div class="stat"><div class="k">${t('sNeed')}</div><div class="v">${baht(need)} <small>${u}</small></div></div>
     <div class="stat"><div class="k">${t('sGap')}</div><div class="v" style="color:${c.gap>0?'#b9434a':'#2f7d4a'}">${c.gap>0?t('behind')+' '+baht(c.gap):t('over')+' '+baht(-c.gap)} <small>${u}</small></div></div>`;
   document.getElementById('subline').textContent=t('subline',state.buckets.length,new Date().toLocaleDateString(loc));
@@ -389,6 +502,8 @@ function renderGrid(){
   state.buckets.forEach(b=>{
     const gap=(+b.target||0)-(+b.cur);
     const ret=b.liquid?0:(+b.cur)*(+b.rate)/100;
+    const tx=b.tx||[];
+    let txOut=0,txIn=0;tx.forEach(x=>{if(x.type==='in')txIn+=+x.amt;else txOut+=+x.amt;});
     const card=document.createElement('div');
     card.className='card';
     card.innerHTML=`
@@ -396,22 +511,22 @@ function renderGrid(){
         <span class="dot" style="background:${cssVar(b.color)}"></span>
         <span class="name">${b.name}</span>
         ${b.liquid?'<span class="tag">liquid</span>':''}${b.auto?'<span class="tag">ETF</span>':''}
+        <button class="go" title="${t('openBucket')}" onclick="openBucket(${b.id})">↗</button>
       </div>
       <div class="row"><span class="k">${t('rCur')}</span><span>${baht(b.cur)} ฿</span></div>
       <div class="row"><span class="k">${t('rTarget')}</span><span>${b.target?baht(b.target)+' ฿':'—'}</span></div>
-      <div class="row"><span class="k">${t('rReturn')}</span><span>${b.liquid?t('noCalc'):(+b.rate).toFixed(1)+'% · +'+baht(ret)+' ฿'}</span></div>
+      <div class="row"><span class="k">${t('rReturn')}</span><span>${b.liquid?t('noCalc'):pct(+b.rate)+'% · +'+baht(ret)+' ฿'}</span></div>
       <div class="row"><span class="k">${t('rNeed')}</span><span class="need ${gap<=0?'done':''}">${b.target?(gap>0?baht(gap)+' ฿':t('done')):'—'}</span></div>
+      ${tx.length?`<div class="txsum"><span style="color:#2f7d4a">+${baht(txIn)}</span> · <span style="color:#b9434a">-${baht(txOut)}</span> ฿</div>`:''}
       <div class="acts">
-        <button onclick="quickAdd(${b.id})">${t('fill')}</button>
         <button onclick="openEdit(${b.id})">${t('edit')}</button>
       </div>`;
     grid.appendChild(card);
   });
 }
 
-function renderAll(){applyI18n();renderHero();renderSummary();renderGrid();
+function renderAll(){applyI18n();renderHero();renderSummary();renderGrid();renderNotes();
   document.getElementById('goalInput').value=state.goal;
-  document.getElementById('notes').value=state.notes||'';
   if(typeof refreshSyncUI==='function')refreshSyncUI();
 }
 
@@ -420,7 +535,36 @@ let goalPrev=null;
 function setGoal(v){if(goalPrev===null)goalPrev=state.goal;state.goal=+v||0;clearTimeout(setGoal._t);
   setGoal._t=setTimeout(()=>{if(goalPrev!==state.goal){log(t('lgGoal',baht(goalPrev),baht(state.goal)));save();}goalPrev=null;},800);
   save();renderHero();renderSummary();}
-function saveNotes(v){state.notes=v;save();}
+/* ---- notes log ---- */
+function addNote(){
+  const el=document.getElementById('noteInput');
+  const text=(el.value||'').trim();
+  if(!text)return;
+  if(!Array.isArray(state.noteLog))state.noteLog=[];
+  state.noteLog.unshift({t:Date.now(),text});
+  el.value='';save();renderNotes();
+}
+function delNote(t){
+  state.noteLog=(state.noteLog||[]).filter(n=>n.t!==t);
+  save();renderNotes();
+}
+function renderNotes(){
+  const box=document.getElementById('noteLog');if(!box)return;
+  const items=state.noteLog||[];
+  if(!items.length){box.innerHTML=`<div class="hempty">${t('notesEmpty')}</div>`;return;}
+  const loc=LANG==='th'?'th-TH':'en-GB';
+  let html='',lastDay='';
+  items.forEach(n=>{
+    const d=new Date(n.t);
+    const day=d.toLocaleDateString(loc,{day:'numeric',month:'short',year:'2-digit'});
+    if(day!==lastDay){html+=`<div class="notedate">${day}</div>`;lastDay=day;}
+    const tm=d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
+    html+=`<div class="noterow"><div class="ntxt">${esc(n.text)}<div class="ntime">${tm}</div></div>`+
+      `<button class="ndel" title="${t('close')}" onclick="delNote(${n.t})">🗑</button></div>`;
+  });
+  box.innerHTML=html;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 function quickAdd(id){
   const b=state.buckets.find(x=>x.id===id);
@@ -434,6 +578,88 @@ function quickAdd(id){
   b.cur=Math.max(0,before+n);
   log(t('lgFill',b.name,(n>=0?'+':'')+baht(n),baht(b.cur)));
   save();renderAll();
+}
+
+/* ---- bucket ledger ---- */
+function openBucket(id){ledgerId=id;renderLedger(id);document.getElementById('bkOverlay').classList.add('show');}
+function closeBucket(){document.getElementById('bkOverlay').classList.remove('show');}
+function renderLedger(id){
+  const b=state.buckets.find(x=>x.id===id);if(!b)return;
+  const tx=(b.tx||[]).slice().sort((a,c)=>c.t-a.t);
+  let out=0,inc=0;tx.forEach(x=>{if(x.type==='in')inc+=+x.amt;else out+=+x.amt;});
+  document.getElementById('bkTitle').textContent=b.name;
+  document.getElementById('bkBal').textContent=baht(b.cur)+' ฿';
+  document.getElementById('bkOut').textContent='-'+baht(out)+' ฿';
+  document.getElementById('bkIn').textContent='+'+baht(inc)+' ฿';
+  const list=document.getElementById('bkList');
+  if(!tx.length){list.innerHTML=`<div class="hempty">${t('emptyLedger')}</div>`;return;}
+  const loc=LANG==='th'?'th-TH':'en-GB';
+  const emo=Object.fromEntries([...CATS.out,...CATS.in]);
+  let html='',lastDay='';
+  tx.forEach(x=>{
+    const d=new Date(x.t);
+    const day=d.toLocaleDateString(loc,{day:'numeric',month:'short',year:'2-digit'});
+    if(day!==lastDay){html+=`<div class="notedate">${day}</div>`;lastDay=day;}
+    const tm=d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
+    const sign=x.type==='in'?'+':'-';
+    html+=`<div class="txrow"><span class="tem">${emo[x.cat]||'📌'}</span>`+
+      `<div class="tbody">${esc(catLabel(x.cat))}${x.note?' · '+esc(x.note):''}`+
+      `<div class="tnote">${tm}</div></div>`+
+      `<span class="tamt ${x.type}">${sign}฿${baht(x.amt)}</span>`+
+      `<button class="tdel" onclick="delTx(${id},${x.id})">🗑</button></div>`;
+  });
+  list.innerHTML=html;
+}
+function delTx(id,txId){
+  if(!confirm(t('confDelTx')))return;
+  const b=state.buckets.find(x=>x.id===id);if(!b||!b.tx)return;
+  const x=b.tx.find(y=>y.id===txId);if(!x)return;
+  if(x.type==='in')b.cur=Math.max(0,(+b.cur)-(+x.amt));else b.cur=(+b.cur)+(+x.amt);
+  b.tx=b.tx.filter(y=>y.id!==txId);
+  log(t('lgTxDel',b.name,baht(x.amt)));
+  save();renderLedger(id);renderAll();
+}
+
+/* ---- add transaction ---- */
+function openTxForm(bucketId,type){
+  ledgerId=bucketId;txType=type;pickedCat=CATS[type][0][0];
+  document.getElementById('txTitle').textContent=type==='in'?t('txIncomeBtn'):t('txSpendBtn');
+  document.getElementById('tx_amt').value='';
+  document.getElementById('tx_note').value='';
+  buildChips();
+  document.getElementById('txOverlay').classList.add('show');
+}
+function closeTxForm(){document.getElementById('txOverlay').classList.remove('show');}
+function buildChips(){
+  const w=document.getElementById('txChips');w.innerHTML='';
+  CATS[txType].forEach(([key,emo])=>{
+    const c=document.createElement('div');c.className='chip';c.dataset.c=key;
+    c.innerHTML=`<span>${emo}</span><span>${esc(catLabel(key))}</span>`;
+    c.onclick=()=>{pickedCat=key;markChip();};w.appendChild(c);
+  });
+  markChip();
+}
+function markChip(){document.querySelectorAll('#txChips .chip').forEach(c=>c.classList.toggle('sel',c.dataset.c===pickedCat));}
+function saveTx(){
+  const b=state.buckets.find(x=>x.id===ledgerId);if(!b)return;
+  const s=String(document.getElementById('tx_amt').value).replace(/,/g,'').trim();
+  const amt=Number(s);
+  if(!Number.isFinite(amt)||amt<=0){alert(t('badNum'));return;}
+  const note=document.getElementById('tx_note').value.trim();
+  if(!Array.isArray(b.tx))b.tx=[];
+  b.tx.unshift({id:Date.now(),type:txType,amt,cat:pickedCat,note,t:Date.now()});
+  if(txType==='in')b.cur=(+b.cur)+amt;else b.cur=Math.max(0,(+b.cur)-amt);
+  const lbl=catLabel(pickedCat);
+  log(t(txType==='in'?'lgTxIn':'lgTxOut',b.name,baht(amt),lbl));
+  save();closeTxForm();renderLedger(ledgerId);renderAll();
+}
+
+/* ---- manual save ---- */
+function manualSave(){
+  save();
+  if(typeof push==='function'&&SYNC_ENABLED&&SYNC_ENABLED()&&syncId){push();}
+  if(CLOUD_READY())setSyncStatus('on',t('saved'));
+  setTimeout(()=>{if(typeof refreshSyncUI==='function')refreshSyncUI();},1500);
 }
 
 function openEdit(id){
@@ -469,7 +695,7 @@ function saveBucket(){
     const diffs=[];
     if(b.cur!=data.cur)diffs.push(t('dAmt',baht(b.cur),baht(data.cur)));
     if(b.target!=data.target)diffs.push(t('dTarget',baht(b.target),baht(data.target)));
-    if(b.rate!=data.rate)diffs.push(t('dRate',(+b.rate).toFixed(1),(+data.rate).toFixed(1)));
+    if(b.rate!=data.rate)diffs.push(t('dRate',pct(+b.rate),pct(+data.rate)));
     if(b.name!=data.name)diffs.push(t('dName',b.name,data.name));
     if(b.liquid!=data.liquid)diffs.push(data.liquid?t('dSetLiquid'):t('dUnsetLiquid'));
     Object.assign(b,data);
@@ -508,7 +734,7 @@ function exportData(){
 }
 function importData(e){
   const f=e.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.buckets)throw 0;if(!d.history)d.history=[];state=d;LANG=state.lang||LANG;log(t('lgImport'));save();renderAll();}catch(_){alert(t('badFile'));}};
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.buckets)throw 0;state=migrate(d);LANG=state.lang||LANG;log(t('lgImport'));save();renderAll();}catch(_){alert(t('badFile'));}};
   r.readAsText(f);e.target.value='';
 }
 
@@ -546,7 +772,7 @@ async function pull(){
     const data=await r.json();
     if(data&&data.buckets){
       applyingRemote=true;
-      state=data; if(!state.history)state.history=[]; LANG=state.lang||LANG;
+      state=migrate(data); LANG=state.lang||LANG;
       localStorage.setItem(KEY,JSON.stringify(state));
       renderAll();
       applyingRemote=false;
@@ -615,6 +841,8 @@ function initSync(){
 
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeEdit();});
 document.getElementById('histOverlay').addEventListener('click',e=>{if(e.target.id==='histOverlay')closeHistory();});
+document.getElementById('bkOverlay').addEventListener('click',e=>{if(e.target.id==='bkOverlay')closeBucket();});
+document.getElementById('txOverlay').addEventListener('click',e=>{if(e.target.id==='txOverlay')closeTxForm();});
 window.addEventListener('resize',renderHero);
 renderAll();
 initSync();

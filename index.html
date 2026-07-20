@@ -150,6 +150,12 @@
   .checkrow{display:flex; align-items:center; gap:8px; font-size:13px; margin-top:6px}
   .modal .foot{display:flex; gap:8px; justify-content:flex-end; margin-top:18px}
   .hint{font-size:11px; color:var(--muted); margin-top:4px}
+  .catrow{display:flex; gap:8px; align-items:center; padding:6px 2px}
+  .catrow input{border:1px solid var(--line2); border-radius:10px; padding:8px 10px; font:inherit; font-size:14px}
+  .catrow input:focus{outline:none; border-color:#bdbdbd}
+  .catrow .cemo{width:52px; text-align:center; flex:none}
+  .catrow .cnm{flex:1; min-width:0}
+  .catadd{margin:6px 2px 4px; font-size:12px}
 
   /* history */
   .hitem{display:flex; gap:10px; padding:10px 8px; border-bottom:1px solid var(--line); font-size:13px}
@@ -211,9 +217,11 @@
   <div class="section-h"><h2 data-i18n="notesHead">โน้ต (safety room / หนี้ / บันทึกประจำวัน)</h2></div>
   <div class="noteadd">
     <textarea id="noteInput" data-i18n-ph="notesPh" placeholder="จดอะไรก็ได้ ไม่ถูกนำไปคำนวณ…"></textarea>
-    <button class="primary" onclick="addNote()" data-i18n="addNote">เพิ่มโน้ต</button>
+    <button class="primary" id="addNoteBtn" onclick="addNote()" data-i18n="addNote">เพิ่มโน้ต</button>
   </div>
   <div class="notelog" id="noteLog"></div>
+  <div style="margin:14px 4px 0"><button class="ghost" id="binToggle" onclick="toggleBin()" style="font-size:12px">🗑 ถังโน้ต</button></div>
+  <div id="noteTrashWrap" style="display:none;margin-top:6px"><div class="notelog" id="noteTrash"></div></div>
 </div>
 
 <!-- HISTORY MODAL -->
@@ -262,6 +270,7 @@
       <div style="display:flex;gap:8px">
         <button onclick="openTxForm(ledgerId,'out')" data-i18n="txSpendBtn">− จ่าย</button>
         <button onclick="openTxForm(ledgerId,'in')" data-i18n="txIncomeBtn">+ รับ</button>
+        <button onclick="openXfer(ledgerId)" data-i18n="xferBtn">⇄ โอน</button>
       </div>
       <button onclick="closeBucket()" data-i18n="close">ปิด</button>
     </div>
@@ -273,11 +282,38 @@
   <div class="modal">
     <h3 id="txTitle" data-i18n="txAdd">เพิ่มรายการ</h3>
     <div class="field"><label data-i18n="txAmount">จำนวนเงิน (บาท)</label><input type="number" id="tx_amt"></div>
-    <div class="field"><label data-i18n="txCat">หมวดหมู่</label><div class="chips" id="txChips"></div></div>
+    <div class="field"><label style="display:flex;justify-content:space-between;align-items:center"><span data-i18n="txCat">หมวดหมู่</span><button type="button" class="ghost" style="font-size:11px;padding:2px 6px" onclick="openCats()" data-i18n="catsBtn">⚙︎ หมวดหมู่</button></label><div class="chips" id="txChips"></div></div>
     <div class="field"><label data-i18n="txNote">โน้ต (ไม่บังคับ)</label><input type="text" id="tx_note"></div>
     <div class="foot">
       <button onclick="closeTxForm()" data-i18n="cancel">ยกเลิก</button>
       <button class="primary" onclick="saveTx()" data-i18n="save">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="overlay" id="xferOverlay">
+  <div class="modal">
+    <h3 data-i18n="xferTitle">โอนระหว่างกอง</h3>
+    <div class="field"><label data-i18n="txAmount">จำนวนเงิน (บาท)</label><input type="number" id="xfer_amt"></div>
+    <div class="field"><label data-i18n="xferTo">โอนไปยัง</label>
+      <select id="xfer_to" style="width:100%;border:1px solid var(--line2);border-radius:11px;padding:9px 12px;font:inherit;font-size:14px;background:var(--surface)"></select></div>
+    <div class="field"><label data-i18n="txNote">โน้ต (ไม่บังคับ)</label><input type="text" id="xfer_note"></div>
+    <div class="foot">
+      <button onclick="closeXfer()" data-i18n="cancel">ยกเลิก</button>
+      <button class="primary" onclick="saveXfer()" data-i18n="save">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MANAGER MODAL -->
+<div class="overlay" id="catOverlay">
+  <div class="modal" style="max-width:420px">
+    <h3 data-i18n="catsTitle">จัดการหมวดหมู่</h3>
+    <div id="catBody" style="max-height:60vh;overflow:auto;margin:0 -2px"></div>
+    <div class="foot">
+      <button onclick="closeCats()" data-i18n="cancel">ยกเลิก</button>
+      <button class="primary" onclick="saveCats()" data-i18n="save">บันทึก</button>
     </div>
   </div>
 </div>
@@ -343,6 +379,12 @@ const I18N={
     catSalary:'เงินเดือน', catBonus:'โบนัส', catReturns:'ผลตอบแทน', catTransferIn:'เงินโอนเข้า',
     lgTxOut:(n,a,c)=>`จ่าย "${n}" ${c} -${a} ฿`, lgTxIn:(n,a,c)=>`รับ "${n}" ${c} +${a} ฿`,
     lgTxDel:(n,a)=>`ลบรายการใน "${n}" (${a} ฿)`,
+    catsBtn:'⚙︎ หมวดหมู่', catsTitle:'จัดการหมวดหมู่', catAdd:'+ เพิ่มหมวดหมู่', catEmoji:'อีโมจิ', catName:'ชื่อหมวดหมู่', confDelCat:'ลบหมวดหมู่นี้?',
+    xferBtn:'⇄ โอน', xferTitle:'โอนระหว่างกอง', xferTo:'โอนไปยัง', xferInsufficient:'ยอดในกองไม่พอโอน',
+    xferOutRow:p=>`โอนไป ${p}`, xferInRow:p=>`โอนมาจาก ${p}`,
+    lgXfer:(a,b,amt)=>`โอน "${a}" → "${b}" ${amt} ฿`, lgXferDel:(a,b,amt)=>`ลบรายการโอน "${a}" ↔ "${b}" (${amt} ฿)`,
+    txEdit:'แก้ไขรายการ', lgTxEdit:(n,a)=>`แก้ไขรายการใน "${n}" (${a} ฿)`,
+    noteEdit:'แก้ไขโน้ต', noteBin:'🗑 ถังโน้ต', noteRestore:'กู้คืน', noteDelForever:'ลบถาวร', binEmpty:'ถังโน้ตว่างเปล่า',
   },
   en:{
     appTitle:'My Portfolio', addBucket:'+ Add bucket', history:'🕘 History', export:'Export', import:'Import',
@@ -385,6 +427,12 @@ const I18N={
     catSalary:'Salary', catBonus:'Bonus', catReturns:'Returns', catTransferIn:'Transfer in',
     lgTxOut:(n,a,c)=>`Spent "${n}" ${c} -${a} ฿`, lgTxIn:(n,a,c)=>`Income "${n}" ${c} +${a} ฿`,
     lgTxDel:(n,a)=>`Deleted entry in "${n}" (${a} ฿)`,
+    catsBtn:'⚙︎ Categories', catsTitle:'Manage categories', catAdd:'+ Add category', catEmoji:'Emoji', catName:'Category name', confDelCat:'Delete this category?',
+    xferBtn:'⇄ Transfer', xferTitle:'Transfer between buckets', xferTo:'Transfer to', xferInsufficient:'Insufficient balance to transfer',
+    xferOutRow:p=>`to ${p}`, xferInRow:p=>`from ${p}`,
+    lgXfer:(a,b,amt)=>`Transfer "${a}" → "${b}" ${amt} ฿`, lgXferDel:(a,b,amt)=>`Deleted transfer "${a}" ↔ "${b}" (${amt} ฿)`,
+    txEdit:'Edit entry', lgTxEdit:(n,a)=>`Edited entry in "${n}" (${a} ฿)`,
+    noteEdit:'Edit note', noteBin:'🗑 Note bin', noteRestore:'Restore', noteDelForever:'Delete forever', binEmpty:'Note bin is empty',
   }
 };
 let LANG='th';
@@ -417,20 +465,29 @@ let state=load();
 LANG=state.lang||'th';
 let editingId=null, pickedColor='--c1';
 let ledgerId=null, txType='out', pickedCat=null;
+let editingTx=null, xferSrc=null, catDraft=null, editingNote=null;
 
 function migrate(s){
   if(!s.history)s.history=[];
   if(!Array.isArray(s.noteLog)){
     s.noteLog=(typeof s.notes==='string'&&s.notes.trim())?[{t:Date.now(),text:s.notes}]:[];
   }
+  if(!Array.isArray(s.noteTrash))s.noteTrash=[];
+  if(!s.cats||!Array.isArray(s.cats.out)||!Array.isArray(s.cats.in)){
+    const lng=s.lang||'th', dict=I18N[lng]||I18N.th;
+    const lbl=k=>dict['cat'+k.charAt(0).toUpperCase()+k.slice(1)]||k;
+    s.cats={out:CATS.out.map(([k,e])=>({k,e,label:lbl(k)})),in:CATS.in.map(([k,e])=>({k,e,label:lbl(k)}))};
+  }
   return s;
 }
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.buckets){return migrate(s);}return structuredClone(DEFAULT);}catch(e){return structuredClone(DEFAULT);}}
-function save(){localStorage.setItem(KEY,JSON.stringify(state));schedulePush();}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.buckets){return migrate(s);}return migrate(structuredClone(DEFAULT));}catch(e){return migrate(structuredClone(DEFAULT));}}
+function save(){state.updatedAt=Date.now();dirty=true;localStorage.setItem(KEY,JSON.stringify(state));schedulePush();}
 function log(msg){state.history.unshift({t:Date.now(),msg});if(state.history.length>300)state.history.pop();}
 const baht=n=>new Intl.NumberFormat('th-TH',{maximumFractionDigits:0}).format(Math.round(n));
 const pct=n=>new Intl.NumberFormat(LANG==='th'?'th-TH':'en-GB',{maximumFractionDigits:2}).format(+n||0);
-const catLabel=key=>t('cat'+key.charAt(0).toUpperCase()+key.slice(1));
+function catEntry(key){const cs=state.cats||{out:[],in:[]};return (cs.out||[]).concat(cs.in||[]).find(c=>c.k===key);}
+function catLabel(key){const c=catEntry(key);return c?c.label:t('catOther');}
+function catEmoji(key){const c=catEntry(key);return c?c.e:'📌';}
 const cssVar=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 /* ---- calculations ---- */
@@ -541,26 +598,76 @@ function addNote(){
   const text=(el.value||'').trim();
   if(!text)return;
   if(!Array.isArray(state.noteLog))state.noteLog=[];
-  state.noteLog.unshift({t:Date.now(),text});
+  if(editingNote!=null){
+    const n=state.noteLog.find(x=>x.t===editingNote);
+    if(n){n.text=text;n.editedAt=Date.now();}
+    editingNote=null;const b=document.getElementById('addNoteBtn');if(b)b.textContent=t('addNote');
+  }else{
+    state.noteLog.unshift({t:Date.now(),text});
+  }
   el.value='';save();renderNotes();
 }
-function delNote(t){
-  state.noteLog=(state.noteLog||[]).filter(n=>n.t!==t);
+function editNote(ts){
+  const n=(state.noteLog||[]).find(x=>x.t===ts);if(!n)return;
+  editingNote=ts;
+  const el=document.getElementById('noteInput');el.value=n.text;el.focus();
+  const b=document.getElementById('addNoteBtn');if(b)b.textContent=t('save');
+}
+function delNote(ts){
+  const n=(state.noteLog||[]).find(x=>x.t===ts);
+  if(n){if(!Array.isArray(state.noteTrash))state.noteTrash=[];state.noteTrash.unshift({...n,deletedAt:Date.now()});}
+  state.noteLog=(state.noteLog||[]).filter(x=>x.t!==ts);
+  if(editingNote===ts){editingNote=null;const b=document.getElementById('addNoteBtn');if(b)b.textContent=t('addNote');document.getElementById('noteInput').value='';}
   save();renderNotes();
 }
+function restoreNote(deletedAt){
+  const n=(state.noteTrash||[]).find(x=>x.deletedAt===deletedAt);if(!n)return;
+  state.noteTrash=state.noteTrash.filter(x=>x.deletedAt!==deletedAt);
+  const note={...n};delete note.deletedAt;
+  if(!Array.isArray(state.noteLog))state.noteLog=[];
+  state.noteLog.unshift(note);
+  save();renderNotes();
+}
+function purgeNote(deletedAt){
+  if(!confirm(t('noteDelForever')))return;
+  state.noteTrash=(state.noteTrash||[]).filter(x=>x.deletedAt!==deletedAt);
+  save();renderNotes();
+}
+let binOpen=false;
+function toggleBin(){binOpen=!binOpen;const w=document.getElementById('noteTrashWrap');if(w)w.style.display=binOpen?'':'none';}
 function renderNotes(){
   const box=document.getElementById('noteLog');if(!box)return;
   const items=state.noteLog||[];
-  if(!items.length){box.innerHTML=`<div class="hempty">${t('notesEmpty')}</div>`;return;}
+  if(!items.length){box.innerHTML=`<div class="hempty">${t('notesEmpty')}</div>`;}
+  else{
+    const loc=LANG==='th'?'th-TH':'en-GB';
+    let html='',lastDay='';
+    items.forEach(n=>{
+      const d=new Date(n.t);
+      const day=d.toLocaleDateString(loc,{day:'numeric',month:'short',year:'2-digit'});
+      if(day!==lastDay){html+=`<div class="notedate">${day}</div>`;lastDay=day;}
+      const tm=d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
+      html+=`<div class="noterow"><div class="ntxt" title="${t('noteEdit')}" style="cursor:pointer" onclick="editNote(${n.t})">${esc(n.text)}<div class="ntime">${tm}${n.editedAt?' · ✎':''}</div></div>`+
+        `<button class="ndel" title="${t('noteBin')}" onclick="delNote(${n.t})">🗑</button></div>`;
+    });
+    box.innerHTML=html;
+  }
+  const bt=document.getElementById('binToggle');
+  if(bt)bt.textContent=t('noteBin')+((state.noteTrash||[]).length?' ('+state.noteTrash.length+')':'');
+  renderTrash();
+}
+function renderTrash(){
+  const box=document.getElementById('noteTrash');if(!box)return;
+  const items=state.noteTrash||[];
+  if(!items.length){box.innerHTML=`<div class="hempty">${t('binEmpty')}</div>`;return;}
   const loc=LANG==='th'?'th-TH':'en-GB';
-  let html='',lastDay='';
+  let html='';
   items.forEach(n=>{
-    const d=new Date(n.t);
-    const day=d.toLocaleDateString(loc,{day:'numeric',month:'short',year:'2-digit'});
-    if(day!==lastDay){html+=`<div class="notedate">${day}</div>`;lastDay=day;}
-    const tm=d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
+    const d=new Date(n.deletedAt||n.t);
+    const tm=d.toLocaleDateString(loc,{day:'numeric',month:'short',year:'2-digit'})+' '+d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
     html+=`<div class="noterow"><div class="ntxt">${esc(n.text)}<div class="ntime">${tm}</div></div>`+
-      `<button class="ndel" title="${t('close')}" onclick="delNote(${n.t})">🗑</button></div>`;
+      `<button class="ndel" onclick="restoreNote(${n.deletedAt})">${esc(t('noteRestore'))}</button>`+
+      `<button class="ndel" onclick="purgeNote(${n.deletedAt})">${esc(t('noteDelForever'))}</button></div>`;
   });
   box.innerHTML=html;
 }
@@ -594,7 +701,6 @@ function renderLedger(id){
   const list=document.getElementById('bkList');
   if(!tx.length){list.innerHTML=`<div class="hempty">${t('emptyLedger')}</div>`;return;}
   const loc=LANG==='th'?'th-TH':'en-GB';
-  const emo=Object.fromEntries([...CATS.out,...CATS.in]);
   let html='',lastDay='';
   tx.forEach(x=>{
     const d=new Date(x.t);
@@ -602,10 +708,19 @@ function renderLedger(id){
     if(day!==lastDay){html+=`<div class="notedate">${day}</div>`;lastDay=day;}
     const tm=d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
     const sign=x.type==='in'?'+':'-';
-    html+=`<div class="txrow"><span class="tem">${emo[x.cat]||'📌'}</span>`+
-      `<div class="tbody">${esc(catLabel(x.cat))}${x.note?' · '+esc(x.note):''}`+
+    let em,lbl;
+    if(x.xid){
+      const peer=state.buckets.find(y=>y.id===x.peer);
+      const pn=peer?peer.name:'—';
+      em='⇄';lbl=x.type==='out'?t('xferOutRow',pn):t('xferInRow',pn);
+    }else{
+      em=catEmoji(x.cat);lbl=esc(catLabel(x.cat));
+    }
+    html+=`<div class="txrow"><span class="tem">${em}</span>`+
+      `<div class="tbody">${lbl}${x.note?' · '+esc(x.note):''}`+
       `<div class="tnote">${tm}</div></div>`+
       `<span class="tamt ${x.type}">${sign}฿${baht(x.amt)}</span>`+
+      (x.xid?'':`<button class="tdel" title="${t('edit')}" onclick="openTxEdit(${id},${x.id})">✏️</button>`)+
       `<button class="tdel" onclick="delTx(${id},${x.id})">🗑</button></div>`;
   });
   list.innerHTML=html;
@@ -614,7 +729,20 @@ function delTx(id,txId){
   if(!confirm(t('confDelTx')))return;
   const b=state.buckets.find(x=>x.id===id);if(!b||!b.tx)return;
   const x=b.tx.find(y=>y.id===txId);if(!x)return;
-  if(x.type==='in')b.cur=Math.max(0,(+b.cur)-(+x.amt));else b.cur=(+b.cur)+(+x.amt);
+  const rev=(bk,e)=>{if(!bk||!e)return;if(e.type==='in')bk.cur=Math.max(0,(+bk.cur)-(+e.amt));else bk.cur=(+bk.cur)+(+e.amt);};
+  if(x.xid){
+    const peer=state.buckets.find(y=>y.id===x.peer);
+    rev(b,x);
+    if(peer&&Array.isArray(peer.tx)){
+      const py=peer.tx.find(y=>y.xid===x.xid&&y.type!==x.type);
+      rev(peer,py);
+      peer.tx=peer.tx.filter(y=>!(y.xid===x.xid&&y.type!==x.type));
+    }
+    b.tx=b.tx.filter(y=>y.id!==txId);
+    log(t('lgXferDel',b.name,peer?peer.name:'—',baht(x.amt)));
+    save();renderLedger(id);renderAll();return;
+  }
+  rev(b,x);
   b.tx=b.tx.filter(y=>y.id!==txId);
   log(t('lgTxDel',b.name,baht(x.amt)));
   save();renderLedger(id);renderAll();
@@ -622,20 +750,31 @@ function delTx(id,txId){
 
 /* ---- add transaction ---- */
 function openTxForm(bucketId,type){
-  ledgerId=bucketId;txType=type;pickedCat=CATS[type][0][0];
+  editingTx=null;
+  ledgerId=bucketId;txType=type;pickedCat=((state.cats&&state.cats[type]&&state.cats[type][0])||{}).k||null;
   document.getElementById('txTitle').textContent=type==='in'?t('txIncomeBtn'):t('txSpendBtn');
   document.getElementById('tx_amt').value='';
   document.getElementById('tx_note').value='';
   buildChips();
   document.getElementById('txOverlay').classList.add('show');
 }
-function closeTxForm(){document.getElementById('txOverlay').classList.remove('show');}
+function openTxEdit(bucketId,txId){
+  const b=state.buckets.find(x=>x.id===bucketId);if(!b||!b.tx)return;
+  const x=b.tx.find(y=>y.id===txId);if(!x)return;
+  editingTx={bucketId,txId};ledgerId=bucketId;txType=x.type;pickedCat=x.cat;
+  document.getElementById('txTitle').textContent=t('txEdit');
+  document.getElementById('tx_amt').value=x.amt;
+  document.getElementById('tx_note').value=x.note||'';
+  buildChips();markChip();
+  document.getElementById('txOverlay').classList.add('show');
+}
+function closeTxForm(){editingTx=null;document.getElementById('txOverlay').classList.remove('show');}
 function buildChips(){
   const w=document.getElementById('txChips');w.innerHTML='';
-  CATS[txType].forEach(([key,emo])=>{
-    const c=document.createElement('div');c.className='chip';c.dataset.c=key;
-    c.innerHTML=`<span>${emo}</span><span>${esc(catLabel(key))}</span>`;
-    c.onclick=()=>{pickedCat=key;markChip();};w.appendChild(c);
+  ((state.cats&&state.cats[txType])||[]).forEach(({k,e,label})=>{
+    const c=document.createElement('div');c.className='chip';c.dataset.c=k;
+    c.innerHTML=`<span>${e}</span><span>${esc(label||catLabel(k))}</span>`;
+    c.onclick=()=>{pickedCat=k;markChip();};w.appendChild(c);
   });
   markChip();
 }
@@ -647,11 +786,91 @@ function saveTx(){
   if(!Number.isFinite(amt)||amt<=0){alert(t('badNum'));return;}
   const note=document.getElementById('tx_note').value.trim();
   if(!Array.isArray(b.tx))b.tx=[];
+  if(editingTx){
+    const x=b.tx.find(y=>y.id===editingTx.txId);if(!x){editingTx=null;return;}
+    const oldAmt=+x.amt;
+    if(x.type==='out')b.cur=Math.max(0,(+b.cur)+oldAmt-amt);else b.cur=(+b.cur)-oldAmt+amt;
+    x.amt=amt;x.cat=pickedCat;x.note=note;
+    log(t('lgTxEdit',b.name,baht(amt)));
+    editingTx=null;
+    save();closeTxForm();renderLedger(ledgerId);renderAll();
+    return;
+  }
   b.tx.unshift({id:Date.now(),type:txType,amt,cat:pickedCat,note,t:Date.now()});
   if(txType==='in')b.cur=(+b.cur)+amt;else b.cur=Math.max(0,(+b.cur)-amt);
   const lbl=catLabel(pickedCat);
   log(t(txType==='in'?'lgTxIn':'lgTxOut',b.name,baht(amt),lbl));
   save();closeTxForm();renderLedger(ledgerId);renderAll();
+}
+
+/* ---- transfer between buckets ---- */
+function openXfer(srcId){
+  xferSrc=srcId;
+  const sel=document.getElementById('xfer_to');sel.innerHTML='';
+  state.buckets.filter(b=>b.id!==srcId).forEach(b=>{
+    const o=document.createElement('option');o.value=b.id;o.textContent=b.name;sel.appendChild(o);
+  });
+  document.getElementById('xfer_amt').value='';
+  document.getElementById('xfer_note').value='';
+  document.getElementById('xferOverlay').classList.add('show');
+}
+function closeXfer(){document.getElementById('xferOverlay').classList.remove('show');}
+function saveXfer(){
+  const src=state.buckets.find(b=>b.id===xferSrc);if(!src)return;
+  const amt=Number(String(document.getElementById('xfer_amt').value).replace(/,/g,'').trim());
+  if(!isFinite(amt)||amt<=0){alert(t('badNum'));return;}
+  if(amt>(+src.cur)){alert(t('xferInsufficient'));return;}
+  const destId=+document.getElementById('xfer_to').value;
+  const dest=state.buckets.find(b=>b.id===destId);if(!dest)return;
+  const note=document.getElementById('xfer_note').value.trim();
+  const now=Date.now(), xid=now;
+  if(!Array.isArray(src.tx))src.tx=[];if(!Array.isArray(dest.tx))dest.tx=[];
+  src.tx.unshift({id:now,type:'out',amt,cat:'transfer',note,t:now,xid,peer:destId});
+  src.cur=(+src.cur)-amt;
+  dest.tx.unshift({id:now+1,type:'in',amt,cat:'transfer',note,t:now,xid,peer:xferSrc});
+  dest.cur=(+dest.cur)+amt;
+  log(t('lgXfer',src.name,dest.name,baht(amt)));
+  save();closeXfer();renderLedger(ledgerId);renderAll();
+}
+
+/* ---- category manager ---- */
+function openCats(){
+  const c=state.cats||{out:[],in:[]};
+  catDraft={in:(c.in||[]).map(x=>({...x})),out:(c.out||[]).map(x=>({...x}))};
+  renderCats();document.getElementById('catOverlay').classList.add('show');
+}
+function closeCats(){catDraft=null;document.getElementById('catOverlay').classList.remove('show');}
+function renderCats(){
+  const body=document.getElementById('catBody');
+  const grp=(g,title)=>{
+    let h=`<div class="notedate">${title}</div>`;
+    catDraft[g].forEach((c,i)=>{
+      h+=`<div class="catrow" data-g="${g}" data-i="${i}">`+
+        `<input class="cemo" maxlength="2" value="${esc(c.e)}">`+
+        `<input class="cnm" type="text" value="${esc(c.label)}" placeholder="${esc(t('catName'))}">`+
+        `<button class="ndel" title="${t('delBucket')}" onclick="delCat('${g}',${i})">🗑</button></div>`;
+    });
+    h+=`<button class="catadd" onclick="addCat('${g}')">${esc(t('catAdd'))}</button>`;
+    return h;
+  };
+  body.innerHTML=grp('in',t('txIncomeBtn'))+grp('out',t('txSpendBtn'));
+}
+function readCats(){
+  document.querySelectorAll('#catBody .catrow').forEach(r=>{
+    const g=r.dataset.g,i=+r.dataset.i;if(!catDraft[g][i])return;
+    catDraft[g][i].e=r.querySelector('.cemo').value||'🏷️';
+    catDraft[g][i].label=r.querySelector('.cnm').value;
+  });
+}
+function addCat(g){readCats();catDraft[g].push({k:'c'+Date.now(),e:'🏷️',label:''});renderCats();}
+function delCat(g,i){if(!confirm(t('confDelCat')))return;readCats();catDraft[g].splice(i,1);renderCats();}
+function saveCats(){
+  readCats();
+  ['in','out'].forEach(g=>{catDraft[g]=catDraft[g].filter(c=>(c.label||'').trim());});
+  state.cats={in:catDraft.in,out:catDraft.out};
+  save();closeCats();
+  if(document.getElementById('txOverlay').classList.contains('show'))buildChips();
+  renderAll();
 }
 
 /* ---- manual save ---- */
@@ -739,7 +958,7 @@ function importData(e){
 }
 
 /* ================= Cloud sync (Supabase, secret-link, no login) ================= */
-let syncId=null, pushTimer=null, applyingRemote=false;
+let syncId=null, pushTimer=null, applyingRemote=false, dirty=false;
 
 function getSyncId(){
   const h=new URLSearchParams(location.hash.slice(1));
@@ -771,11 +990,17 @@ async function pull(){
     if(!r.ok)throw 0;
     const data=await r.json();
     if(data&&data.buckets){
-      applyingRemote=true;
-      state=migrate(data); LANG=state.lang||LANG;
-      localStorage.setItem(KEY,JSON.stringify(state));
-      renderAll();
-      applyingRemote=false;
+      if(dirty){                                              // local has unsaved edits — push up, don't clobber
+        await push(true);
+      }else if((+data.updatedAt||0)<(+state.updatedAt||0)){   // local is newer — keep local
+        // skip applying remote
+      }else{
+        applyingRemote=true;
+        state=migrate(data); LANG=state.lang||LANG;
+        localStorage.setItem(KEY,JSON.stringify(state));
+        renderAll();
+        applyingRemote=false;
+      }
     }else{
       await push(true); // first time: seed remote with local data
     }
@@ -794,6 +1019,7 @@ async function push(silent){
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_portfolio`,{
       method:'POST',headers:sbHeaders(),body:JSON.stringify({pid:syncId,pdata:state})});
     if(!r.ok)throw 0;
+    dirty=false;
     if(!silent)refreshSyncUI();
   }catch(e){setSyncStatus('err',t('stErr'));}
 }
@@ -843,6 +1069,8 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==
 document.getElementById('histOverlay').addEventListener('click',e=>{if(e.target.id==='histOverlay')closeHistory();});
 document.getElementById('bkOverlay').addEventListener('click',e=>{if(e.target.id==='bkOverlay')closeBucket();});
 document.getElementById('txOverlay').addEventListener('click',e=>{if(e.target.id==='txOverlay')closeTxForm();});
+document.getElementById('xferOverlay').addEventListener('click',e=>{if(e.target.id==='xferOverlay')closeXfer();});
+document.getElementById('catOverlay').addEventListener('click',e=>{if(e.target.id==='catOverlay')closeCats();});
 window.addEventListener('resize',renderHero);
 renderAll();
 initSync();
